@@ -1,0 +1,15 @@
+{
+  "name": "ecommerce-graphql-backend",
+  "version": "1.0.0",
+  "description": "Backend GraphQL con Apollo Server y SQLite para E-commerce BiblioTech",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.10.0",
+    "graphql": "^16.8.0"
+  }
+}

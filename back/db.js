@@ -1,0 +1,247 @@
+import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const dbPath = path.join(__dirname, 'ecommerce.db');
+const sqlInitPath = path.join(__dirname, 'db.sql');
+
+export const db = new DatabaseSync(dbPath);
+
+// Inicializar esquema si no existen tablas
+export function initDB() {
+  const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='productos'").all();
+  if (tableCheck.length === 0) {
+    console.log('[DB] Inicializando base de datos desde db.sql...');
+    if (fs.existsSync(sqlInitPath)) {
+      const sqlContent = fs.readFileSync(sqlInitPath, 'utf8');
+      db.exec(sqlContent);
+      console.log('[DB] Base de datos SQLite creada y poblada exitosamente.');
+    } else {
+      console.error('[DB] No se encontro db.sql para inicializar la base de datos.');
+    }
+  } else {
+    console.log('[DB] Base de datos SQLite conectada correctamente (' + dbPath + ').');
+  }
+}
+
+// Repositorios de datos
+export const dbRepo = {
+  // Categorias
+  getCategorias: () => {
+    return db.prepare('SELECT * FROM categorias ORDER BY id ASC').all();
+  },
+  getCategoriaById: (id) => {
+    return db.prepare('SELECT * FROM categorias WHERE id = ?').get(id) || null;
+  },
+  
+  // Productos
+  getProductos: ({ categoriaId, busqueda, limite, desde } = {}) => {
+    let query = 'SELECT * FROM productos WHERE 1=1';
+    const params = [];
+
+    if (categoriaId) {
+      query += ' AND categoriaId = ?';
+      params.push(categoriaId);
+    }
+
+    if (busqueda && busqueda.trim() !== '') {
+      query += ' AND (titulo LIKE ? OR autor LIKE ? OR descripcion LIKE ?)';
+      const term = `%${busqueda.trim()}%`;
+      params.push(term, term, term);
+    }
+
+    query += ' ORDER BY destacado DESC, id ASC';
+
+    if (limite) {
+      query += ' LIMIT ?';
+      params.push(limite);
+      if (desde) {
+        query += ' OFFSET ?';
+        params.push(desde);
+      }
+    }
+
+    return db.prepare(query).all(...params);
+  },
+  getProductoById: (id) => {
+    return db.prepare('SELECT * FROM productos WHERE id = ?').get(id) || null;
+  },
+  getProductosByCategoriaId: (categoriaId) => {
+    return db.prepare('SELECT * FROM productos WHERE categoriaId = ? ORDER BY id ASC').all(categoriaId);
+  },
+
+  // Usuarios
+  getUsuarios: () => {
+    return db.prepare('SELECT id, nombre, email, rol, telefono, direccion FROM usuarios ORDER BY id ASC').all();
+  },
+  getUsuarioById: (id) => {
+    return db.prepare('SELECT id, nombre, email, rol, telefono, direccion FROM usuarios WHERE id = ?').get(id) || null;
+  },
+
+  // Pedidos
+  getPedidos: () => {
+    return db.prepare('SELECT * FROM pedidos ORDER BY id DESC').all();
+  },
+  getPedidoById: (id) => {
+    return db.prepare('SELECT * FROM pedidos WHERE id = ?').get(id) || null;
+  },
+  getPedidosByUsuarioId: (usuarioId) => {
+    return db.prepare('SELECT * FROM pedidos WHERE usuarioId = ? ORDER BY id DESC').all(usuarioId);
+  },
+  getDetallesByPedidoId: (pedidoId) => {
+    return db.prepare('SELECT * FROM detalles_pedido WHERE pedidoId = ?').all(pedidoId);
+  },
+
+  // Mutaciones CRUD Productos
+  crearProducto: (datos) => {
+    const { titulo, autor, isbn, editorial, precio, precioAnterior, imagen, categoriaId, stock, descripcion, paginas, rating, resenasCount, destacado } = datos;
+    const stmt = db.prepare(`
+      INSERT INTO productos (titulo, autor, isbn, editorial, precio, precioAnterior, imagen, categoriaId, stock, descripcion, paginas, rating, resenasCount, destacado)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const info = stmt.run(
+      titulo,
+      autor,
+      isbn || null,
+      editorial || null,
+      precio,
+      precioAnterior || null,
+      imagen || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600',
+      categoriaId,
+      stock,
+      descripcion || '',
+      paginas || 300,
+      rating || 4.8,
+      resenasCount || 0,
+      destacado ? 1 : 0
+    );
+    return dbRepo.getProductoById(info.lastInsertRowid);
+  },
+
+  actualizarProducto: (id, datos) => {
+    const current = dbRepo.getProductoById(id);
+    if (!current) throw new Error(`Producto con ID ${id} no encontrado.`);
+
+    const updated = { ...current, ...datos };
+    const stmt = db.prepare(`
+      UPDATE productos 
+      SET titulo = ?, autor = ?, isbn = ?, editorial = ?, precio = ?, precioAnterior = ?, imagen = ?, categoriaId = ?, stock = ?, descripcion = ?, paginas = ?, rating = ?, resenasCount = ?, destacado = ?
+      WHERE id = ?
+    `);
+    stmt.run(
+      updated.titulo,
+      updated.autor,
+      updated.isbn,
+      updated.editorial,
+      updated.precio,
+      updated.precioAnterior,
+      updated.imagen,
+      updated.categoriaId,
+      updated.stock,
+      updated.descripcion,
+      updated.paginas,
+      updated.rating,
+      updated.resenasCount,
+      updated.destacado ? 1 : 0,
+      id
+    );
+    return dbRepo.getProductoById(id);
+  },
+
+  eliminarProducto: (id) => {
+    const current = dbRepo.getProductoById(id);
+    if (!current) return false;
+    const stmt = db.prepare('DELETE FROM productos WHERE id = ?');
+    const info = stmt.run(id);
+    return info.changes > 0;
+  },
+
+  // Mutacion de Negocio: Crear Pedido con transaccion e inventario
+  crearPedido: (datos) => {
+    const { items, metodoPago, direccionEnvio, nombreCliente, emailCliente, usuarioId } = datos;
+
+    if (!items || items.length === 0) {
+      throw new Error('El pedido debe incluir al menos un producto.');
+    }
+
+    // 1. Validar productos y existencias
+    let subtotal = 0;
+    const productosValidados = [];
+
+    for (const item of items) {
+      const prod = dbRepo.getProductoById(item.productoId);
+      if (!prod) {
+        throw new Error(`Producto con ID ${item.productoId} no encontrado en el catalogo.`);
+      }
+      if (prod.stock < item.cantidad) {
+        throw new Error(`Stock insuficiente para "${prod.titulo}". Solicitado: ${item.cantidad}, Disponible: ${prod.stock}`);
+      }
+      const itemSubtotal = prod.precio * item.cantidad;
+      subtotal += itemSubtotal;
+      productosValidados.push({
+        producto: prod,
+        cantidad: item.cantidad,
+        precioUnitario: prod.precio,
+        subtotal: itemSubtotal
+      });
+    }
+
+    const envio = subtotal > 999 ? 0.0 : 99.0;
+    const total = subtotal + envio;
+    const fecha = new Date().toISOString();
+    const folio = `FOL-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;
+
+    // 2. Ejecutar insercion y actualizacion de stock
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      // Insertar pedido
+      const stmtPedido = db.prepare(`
+        INSERT INTO pedidos (folio, fecha, subtotal, envio, total, status, metodoPago, direccionEnvio, nombreCliente, emailCliente, usuarioId)
+        VALUES (?, ?, ?, ?, ?, 'PAGADO', ?, ?, ?, ?, ?)
+      `);
+      const pedidoInfo = stmtPedido.run(
+        folio,
+        fecha,
+        subtotal,
+        envio,
+        total,
+        metodoPago || 'TARJETA_CREDITO',
+        direccionEnvio,
+        nombreCliente,
+        emailCliente,
+        usuarioId || null
+      );
+      const pedidoId = pedidoInfo.lastInsertRowid;
+
+      // Insertar detalles y descontar stock
+      const stmtDetalle = db.prepare(`
+        INSERT INTO detalles_pedido (pedidoId, productoId, cantidad, precioUnitario, subtotal)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      const stmtStock = db.prepare(`
+        UPDATE productos SET stock = stock - ? WHERE id = ?
+      `);
+
+      for (const p of productosValidados) {
+        stmtDetalle.run(pedidoId, p.producto.id, p.cantidad, p.precioUnitario, p.subtotal);
+        stmtStock.run(p.cantidad, p.producto.id);
+      }
+
+      db.exec('COMMIT;');
+      return dbRepo.getPedidoById(pedidoId);
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      throw new Error(`Error al procesar el pedido: ${err.message}`);
+    }
+  },
+
+  actualizarEstadoPedido: (id, status) => {
+    const stmt = db.prepare('UPDATE pedidos SET status = ? WHERE id = ?');
+    stmt.run(status, id);
+    return dbRepo.getPedidoById(id);
+  }
+};

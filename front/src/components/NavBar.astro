@@ -1,0 +1,104 @@
+---
+---
+
+<header class="navbar">
+  <div class="container navbar__content">
+
+    <a href="/" class="navbar__logo">
+      E-Commerce
+    </a>
+
+    <nav class="navbar__links" aria-label="Navegación principal">
+      <a href="/">Inicio</a>
+      <a href="/catalogo">Catálogo</a>
+      <a href="/ordenes">Mis Órdenes</a>
+    </nav>
+
+    <div class="navbar__actions">
+
+      <!-- Zona reservada para AuthSystem pa-->
+      <div class="navbar__auth">
+        <slot name="auth" /> <!-- Aqui va el AuthSystem pa, en este slot se podría poner un Cerrar Sesióno algo asi -->
+      </div>
+
+      <!-- Carrito -->
+      <a href="/carrito" class="navbar__cart" aria-label="Carrito">
+        🛒
+      </a>
+
+    </div>
+
+  </div>
+</header>
+
+
+
+
+
+<style>
+  .navbar {
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .navbar__content {
+    min-height: 4rem;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
+  }
+
+  .navbar__logo {
+    color: var(--color-primary);
+    font-size: 1.25rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .navbar__links {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+  }
+
+  .navbar__links a {
+    color: var(--color-text-muted);
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+
+  .navbar__links a:hover {
+    color: var(--color-primary);
+  }
+
+  .navbar__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .navbar__auth {
+    display: flex;
+    align-items: center;
+  }
+
+  .navbar__cart {
+    font-size: 1.25rem;
+  }
+
+  @media (max-width: 768px) {
+    .navbar__content {
+      flex-wrap: wrap;
+      padding-block: var(--spacing-md);
+    }
+
+    .navbar__links {
+      order: 3;
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
