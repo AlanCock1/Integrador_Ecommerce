@@ -1,0 +1,177 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const pageTitle = "¡Orden Confirmada! — BiblioTech Store";
+---
+
+<BaseLayout pageTitle={pageTitle}>
+  <div class="confirmed-page">
+    <div class="container confirmed-container">
+      <div class="card confirmed-card">
+        <div class="success-icon-badge">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        </div>
+        <h1>¡Gracias por tu compra!</h1>
+        <p class="confirmed-subtitle">Tu orden ha sido procesada y registrada en nuestro sistema con éxito.</p>
+
+        <div class="folio-box">
+          <span class="folio-label">Folio Oficial de Pedido:</span>
+          <span id="order-folio-display" class="folio-code">CARGANDO...</span>
+        </div>
+
+        <div class="info-steps-card">
+          <div class="step-item">
+            <span class="step-num" style="display:inline-flex; width:28px; height:28px; border-radius:50%; background:#dbeafe; color:var(--color-primary); font-weight:700; align-items:center; justify-content:center; font-size:0.85rem;">1</span>
+            <div>
+              <strong>Confirmación por Correo</strong>
+              <p>Te enviamos el resumen detallado y comprobante de pago a tu correo registrado.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <span class="step-num" style="display:inline-flex; width:28px; height:28px; border-radius:50%; background:#dbeafe; color:var(--color-primary); font-weight:700; align-items:center; justify-content:center; font-size:0.85rem;">2</span>
+            <div>
+              <strong>Preparación de Inventario</strong>
+              <p>Nuestro equipo en almacén ya está empacando tus libros para el despacho.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <span class="step-num" style="display:inline-flex; width:28px; height:28px; border-radius:50%; background:#dbeafe; color:var(--color-primary); font-weight:700; align-items:center; justify-content:center; font-size:0.85rem;">3</span>
+            <div>
+              <strong>Seguimiento en Vivo</strong>
+              <p>Puedes consultar el estado de tu pedido en cualquier momento en tu sección de órdenes.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="confirmed-actions">
+          <a href="/ordenes" class="btn btn-primary">Ver Mis Órdenes</a>
+          <a href="/catalogo" class="btn btn-outline">Seguir Comprando</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .confirmed-page {
+    padding: var(--spacing-2xl) 0;
+    min-height: calc(80vh - 4rem);
+    display: flex;
+    align-items: center;
+  }
+
+  .confirmed-container {
+    max-width: 580px;
+  }
+
+  .confirmed-card {
+    text-align: center;
+    padding: var(--spacing-2xl) var(--spacing-xl);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+  }
+
+  .success-icon-badge {
+    font-size: 4rem;
+    margin-bottom: 0.5rem;
+    animation: bounce 0.6s ease;
+  }
+
+  @keyframes bounce {
+    0% { transform: scale(0.5); opacity: 0; }
+    70% { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .confirmed-card h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.85rem;
+    color: var(--color-text);
+  }
+
+  .confirmed-subtitle {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .folio-box {
+    background: #eff6ff;
+    border: 1.5px dashed var(--color-primary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .folio-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+
+  .folio-code {
+    font-family: monospace;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    letter-spacing: 0.05em;
+  }
+
+  .info-steps-card {
+    text-align: left;
+    background: var(--color-background);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .step-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .step-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+
+  .step-item strong {
+    font-size: 0.92rem;
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  .step-item p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+  }
+
+  .confirmed-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+  }
+
+  @media (max-width: 500px) {
+    .confirmed-actions {
+      flex-direction: column;
+    }
+  }
+</style>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const folio = params.get('folio') || 'PED-2026-NUEVO';
+  const display = document.getElementById('order-folio-display');
+  if (display) {
+    display.textContent = folio;
+  }
+</script>
